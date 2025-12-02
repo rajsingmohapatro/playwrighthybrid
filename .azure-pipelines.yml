@@ -1,0 +1,38 @@
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  NODE_VERSION: '18.x'
+  PLAYWRIGHT_HEADLESS: '1'
+
+jobs:
+- job: BuildAndTest
+  displayName: 'Build and Test (Web + Mobile)'
+  steps:
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '$(NODE_VERSION)'
+    displayName: 'Install Node.js'
+  - script: | 
+      npm install
+      npx playwright install --with-deps
+    displayName: 'Install dependencies'
+  - script: | 
+      npx appium --log appium/logs/appium.log &
+      sleep 15
+    displayName: 'Start Appium server'
+  - script: | 
+      npx playwright test --headless
+    displayName: 'Run Playwright tests in headless mode'
+  - script: | 
+      npx mocha appium/tests --reporter mochawesome --reporter-options reportDir=appium/report,reportFilename=appium-report --exit --timeout 300000
+    displayName: 'Run Appium mobile tests with reporting'
+  - publish: web/playwright-report
+    artifact: playwright-report
+    condition: always()
+  - publish: appium/report
+    artifact: appium-report
+    condition: always()
